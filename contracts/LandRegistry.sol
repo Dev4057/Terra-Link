@@ -39,7 +39,7 @@ contract LandRegistry is Ownable {
     }
 
     uint256 public propertyCount;
-    mapping(uint256 => Property) private properties;
+    mapping(uint256 => Property) public properties;
     address public escrowContract;
 
     event PropertyRegistered(uint256 indexed propertyId, address indexed owner);
@@ -88,9 +88,9 @@ contract LandRegistry is Ownable {
         emit ROWFlagUpdated(propertyId, affected);
     }
 
-    function transferOwnership(uint256 propertyId, address newOwner) external onlyPropertyOwner(propertyId) {
-        _transfer(propertyId, newOwner);
-    }
+ function transferPropertyOwnership(uint256 propertyId, address newOwner) external onlyPropertyOwner(propertyId) {
+    _transfer(propertyId, newOwner);
+}
 
     function transferFromEscrow(uint256 propertyId, address newOwner) external {
         require(msg.sender == escrowContract || msg.sender == owner, "Not authorized");
