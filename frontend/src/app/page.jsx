@@ -1,226 +1,108 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useWallet } from "../context/WalletContext";
-import { ethers } from "ethers";
-import { LAND_REGISTRY_ADDRESS } from "../../contracts/addresses";
-import { LAND_REGISTRY_ABI } from "../../contracts/LandRegistryABI";
 
-export default function AdminPage() {
-  const { account, isConnected } = useWallet();
-  const [isOwner, setIsOwner] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [properties, setProperties] = useState([]);
-  const [updating, setUpdating] = useState(false);
-
-  useEffect(() => {
-    if (isConnected && account) {
-      checkOwner();
-      loadAllProperties();
-    }
-  }, [isConnected, account]);
-
-  const checkOwner = async () => {
-    if (!window.ethereum) return;
-    
-    setLoading(true);
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const contract = new ethers.Contract(
-        LAND_REGISTRY_ADDRESS,
-        LAND_REGISTRY_ABI,
-        provider
-      );
-      
-      const ownerAddr = await contract.owner();
-      setIsOwner(ownerAddr.toLowerCase() === account.toLowerCase());
-    } catch (error) {
-      console.error("Error checking owner:", error);
-    }
-    setLoading(false);
-  };
-
-  const loadAllProperties = async () => {
-    if (!window.ethereum) return;
-    
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const contract = new ethers.Contract(
-        LAND_REGISTRY_ADDRESS,
-        LAND_REGISTRY_ABI,
-        provider
-      );
-      
-      const count = await contract.propertyCount();
-      const props = [];
-      
-      for (let i = 1; i <= Number(count); i++) {
-        try {
-          const prop = await contract.getProperty(i);
-          props.push({
-            id: prop.id.toString(),
-            location: prop.location,
-            area: prop.area.toString(),
-            owner: prop.propOwner,
-            rowAffected: prop.rowAffected
-          });
-        } catch (err) {
-          console.log(`Property ${i} error:`, err.message);
-        }
-      }
-      
-      setProperties(props);
-    } catch (error) {
-      console.error("Error loading properties:", error);
-    }
-  };
-
-  const handleToggleROW = async (propertyId, currentStatus) => {
-    if (!window.ethereum) return;
-    
-    setUpdating(true);
-    try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(
-        LAND_REGISTRY_ADDRESS,
-        LAND_REGISTRY_ABI,
-        signer
-      );
-
-      const tx = await contract.setROWFlag(propertyId, !currentStatus);
-      await tx.wait();
-      
-      alert(`✅ ROW status updated for Property #${propertyId}`);
-      loadAllProperties();
-    } catch (error) {
-      console.error("Error updating ROW flag:", error);
-      alert("❌ Failed to update: " + (error.reason || error.message));
-    }
-    setUpdating(false);
-  };
-
-  if (!isConnected) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🔌</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Wallet Not Connected</h2>
-          <p className="text-gray-600">Please connect your wallet to access admin panel</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!isOwner) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🚫</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Access Denied</h2>
-          <p className="text-gray-600">You are not the contract owner</p>
-        </div>
-      </div>
-    );
-  }
+export default function HomePage() {
+  const { isConnected } = useWallet();
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-3xl font-bold text-gray-800">Admin Panel</h1>
-          <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-semibold">
-            👑 Owner
-          </span>
-        </div>
-        <p className="text-gray-600">Manage ROW flags for all properties</p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Area
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Owner
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ROW Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {properties.map((prop) => (
-                <tr key={prop.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    #{prop.id}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {prop.location}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {prop.area} m²
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
-                    {prop.owner.slice(0, 6)}...{prop.owner.slice(-4)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      prop.rowAffected 
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {prop.rowAffected ? '⚠️ Affected' : '✓ Clear'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button
-                      onClick={() => handleToggleROW(prop.id, prop.rowAffected)}
-                      disabled={updating}
-                      className={`px-3 py-1 rounded-lg font-medium transition ${
-                        updating
-                          ? 'bg-gray-300 cursor-not-allowed'
-                          : prop.rowAffected
-                          ? 'bg-green-600 hover:bg-green-700 text-white'
-                          : 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                      }`}
-                    >
-                      {prop.rowAffected ? 'Clear ROW' : 'Mark as ROW'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {properties.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">📋</div>
-            <p className="text-gray-600">No properties registered yet</p>
+    <div className="max-w-6xl mx-auto">
+      {/* Hero Section */}
+      <div className="text-center mb-16">
+        <h1 className="text-5xl font-bold text-gray-900 mb-4">
+          Welcome to <span className="text-blue-600">TerraLink</span> 🌍
+        </h1>
+        <p className="text-xl text-gray-600 mb-8">
+          Your decentralized land registry and escrow management platform
+        </p>
+        {!isConnected && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 inline-block">
+            <p className="text-yellow-800">
+              👆 Connect your wallet to get started
+            </p>
           </div>
         )}
       </div>
+
+      {/* Features Grid */}
+      <div className="grid md:grid-cols-3 gap-8 mb-12">
+        <Link href="/properties">
+          <div className="bg-white p-8 rounded-lg shadow-md hover:shadow-xl transition cursor-pointer border-2 border-transparent hover:border-blue-500">
+            <div className="text-5xl mb-4">🏠</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">Properties</h2>
+            <p className="text-gray-600">
+              Register and manage your land properties on the blockchain
+            </p>
+          </div>
+        </Link>
+
+        <Link href="/escrows">
+          <div className="bg-white p-8 rounded-lg shadow-md hover:shadow-xl transition cursor-pointer border-2 border-transparent hover:border-blue-500">
+            <div className="text-5xl mb-4">💰</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">Escrows</h2>
+            <p className="text-gray-600">
+              Create and manage secure escrow payments for ROW properties
+            </p>
+          </div>
+        </Link>
+
+        <Link href="/admin">
+          <div className="bg-white p-8 rounded-lg shadow-md hover:shadow-xl transition cursor-pointer border-2 border-transparent hover:border-blue-500">
+            <div className="text-5xl mb-4">👑</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-3">Admin</h2>
+            <p className="text-gray-600">
+              Manage ROW flags and administrative functions
+            </p>
+          </div>
+        </Link>
+      </div>
+
+      {/* Info Boxes */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+          <h3 className="text-lg font-semibold text-blue-900 mb-2">
+            🔗 Blockchain Powered
+          </h3>
+          <p className="text-blue-800 text-sm">
+            All property records are stored immutably on Ethereum, ensuring transparency and security
+          </p>
+        </div>
+
+        <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+          <h3 className="text-lg font-semibold text-green-900 mb-2">
+            🛡️ Secure Escrows
+          </h3>
+          <p className="text-green-800 text-sm">
+            Smart contract escrows protect both buyers and sellers with automated fund management
+          </p>
+        </div>
+      </div>
+
+      {/* Instructions */}
+      {isConnected && (
+        <div className="mt-12 bg-white p-8 rounded-lg shadow-md">
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">Quick Start Guide</h3>
+          <ol className="space-y-3 text-gray-700">
+            <li className="flex items-start">
+              <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 flex-shrink-0 text-sm">1</span>
+              <span>Go to <strong>Properties</strong> page and register your land</span>
+            </li>
+            <li className="flex items-start">
+              <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 flex-shrink-0 text-sm">2</span>
+              <span>If you're the admin, go to <strong>Admin</strong> panel to mark properties as ROW affected</span>
+            </li>
+            <li className="flex items-start">
+              <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 flex-shrink-0 text-sm">3</span>
+              <span>Create <strong>Escrows</strong> for ROW properties to secure compensation payments</span>
+            </li>
+            <li className="flex items-start">
+              <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 flex-shrink-0 text-sm">4</span>
+              <span>Admin can release funds when conditions are met</span>
+            </li>
+          </ol>
+        </div>
+      )}
     </div>
   );
 }
